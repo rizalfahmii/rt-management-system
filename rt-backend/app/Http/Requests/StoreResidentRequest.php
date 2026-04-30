@@ -15,7 +15,7 @@ class StoreResidentRequest extends FormRequest
     {
         return [
             'full_name' => 'required|string|max:255',
-            'ktp_photo' => 'nullable|string|max:255',
+            'ktp_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
             'resident_status' => 'required|in:tetap,kontrak',
             'phone' => 'nullable|string|max:25',
             'is_married' => 'required|boolean',

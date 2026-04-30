@@ -26,16 +26,24 @@ class ResidentController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-     public function store(StoreResidentRequest $request)
-    {
-        $resident = Resident::create($request->validated());
+    public function store(StoreResidentRequest $request)
+{
+    $data = $request->validated();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Penghuni berhasil ditambahkan',
-            'data' => $resident
-        ], 201);
+    if ($request->hasFile('ktp_photo')) {
+        $data['ktp_photo'] = $request
+            ->file('ktp_photo')
+            ->store('ktp', 'public');
     }
+
+    $resident = Resident::create($data);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Penghuni berhasil ditambahkan',
+        'data' => $resident
+    ], 201);
+}
 
     /**
      * Display the specified resource.
