@@ -94,7 +94,7 @@ const handleExport = async () => {
                 onClick={handleExport}
                 className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl font-bold text-sm transition"
               >
-                Export PDF
+                Export Laporan
               </button>
             </div>
           </div>
