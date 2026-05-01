@@ -8,29 +8,51 @@ use App\Models\Resident;
 use App\Models\Payment;
 use App\Models\PaymentType;
 use App\Models\Expense;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
 class DemoSeeder extends Seeder
 {
     public function run(): void
     {
+        // =========================
+        // RESET DATA
+        // =========================
         Payment::query()->delete();
         Expense::query()->delete();
         House::query()->delete();
         Resident::query()->delete();
         PaymentType::query()->delete();
+        User::query()->delete();
 
-      
-      $cleaning = PaymentType::create([
-    'name' => 'Iuran Kebersihan',
-    'amount' => 15000
-]);
+        // =========================
+        // ADMIN USER
+        // =========================
+        User::create([
+            'name' => 'Admin RT',
+            'email' => 'adminrt@gmail.com',
+            'password' => Hash::make('admin123'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
-$security = PaymentType::create([
-    'name' => 'Iuran Satpam',
-    'amount' => 25000
-]);
+        // =========================
+        // PAYMENT TYPES
+        // =========================
+        $cleaning = PaymentType::create([
+            'name' => 'Iuran Kebersihan',
+            'amount' => 15000
+        ]);
 
+        $security = PaymentType::create([
+            'name' => 'Iuran Satpam',
+            'amount' => 25000
+        ]);
+
+        // =========================
+        // HOUSES
+        // =========================
         $houses = [];
 
         for ($i = 1; $i <= 8; $i++) {
@@ -41,7 +63,9 @@ $security = PaymentType::create([
             ]);
         }
 
-       
+        // =========================
+        // RESIDENTS
+        // =========================
         $residents = [];
 
         $names = [
@@ -63,15 +87,18 @@ $security = PaymentType::create([
             ]);
         }
 
-      
-
+        // =========================
+        // PAYMENTS
+        // =========================
         $year = now()->year;
 
         foreach ($residents as $key => $resident) {
 
             $house = $houses[$key];
 
-          
+            // =========================
+            // Resident 1 = yearly payment
+            // =========================
             if ($resident->id == 1) {
 
                 for ($m = 1; $m <= 12; $m++) {
@@ -106,7 +133,9 @@ $security = PaymentType::create([
                 continue;
             }
 
-         
+            // =========================
+            // Other residents (monthly)
+            // =========================
             for ($m = 1; $m <= 12; $m++) {
 
                 $paid = $m < now()->month;
@@ -137,6 +166,9 @@ $security = PaymentType::create([
             }
         }
 
+        // =========================
+        // EXPENSES
+        // =========================
         for ($m = 1; $m <= 12; $m++) {
 
             Expense::create([

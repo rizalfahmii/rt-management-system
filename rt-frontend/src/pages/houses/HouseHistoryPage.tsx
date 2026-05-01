@@ -12,7 +12,6 @@ export default function HouseHistoryPage() {
     setLoading(true);
     try {
       const res = await getHouseHistory(Number(id));
-      // Menyesuaikan dengan struktur response service-mu
       setHouse(res.house || {});
       setData(Array.isArray(res) ? res : res.history || []);
     } catch (error) {
