@@ -24,7 +24,6 @@ class StoreHouseRequest extends FormRequest
     {
         return [
             'house_number' =>  'required|string',
-            'house_status' => 'required|string|max:255',
             'notes' => 'nullable|string|max:255'
         ];
     }

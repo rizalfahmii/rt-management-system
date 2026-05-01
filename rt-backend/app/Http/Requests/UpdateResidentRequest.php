@@ -12,13 +12,15 @@ class UpdateResidentRequest extends FormRequest
     }
 
     public function rules(): array
-    {
-        return [
-            'full_name' => 'required|string|max:255',
-            'ktp_photo' => 'nullable|string|max:255',
-            'resident_status' => 'required|in:tetap,kontrak',
-            'phone' => 'nullable|string|max:25',
-            'is_married' => 'required|boolean',
-        ];
-    }
+{
+    return [
+        'full_name' => 'required|string|max:255',
+        // UBAH: Jangan gunakan 'string' kalau yang dikirim adalah file/gambar
+        'ktp_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', 
+        'resident_status' => 'required|in:tetap,kontrak',
+        'phone' => 'nullable|string|max:25',
+        // TIPS: Kadang boolean dari FormData terbaca sebagai string "0" atau "1"
+        'is_married' => 'required', 
+    ];
+}
 }

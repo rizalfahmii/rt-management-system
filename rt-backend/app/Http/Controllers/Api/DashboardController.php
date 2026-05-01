@@ -2,81 +2,148 @@
 
 namespace App\Http\Controllers\Api;
 
+
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
 use App\Models\Payment;
 use App\Models\Expense;
-use App\Models\House;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use App\Exports\MonthlyReportExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
-    {
-        $month = $request->month ?? now()->month;
-        $year  = $request->year ?? now()->year;
+ public function exportPaymentsCsv()
+{
+    $filename = "laporan-pembayaran-" . date('Y-m-d') . ".csv";
 
-        // SUMMARY
-        $income = Payment::where('month', $month)
-            ->where('year', $year)
-            ->where('status', 'lunas')
-            ->sum('amount');
+    $headers = [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => "attachment; filename=\"$filename\"",
+        'Pragma' => 'no-cache',
+        'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+        'Expires' => '0',
+    ];
 
-        $expense = Expense::whereMonth('expense_date', $month)
-            ->whereYear('expense_date', $year)
-            ->sum('amount');
+    $callback = function () {
+        $file = fopen('php://output', 'w');
 
-        $occupiedHouses = House::where('house_status', 'dihuni')->count();
-        $emptyHouses = House::where('house_status', 'kosong')->count();
+        // Header kolom
+        fputcsv($file, [
+            'ID',
+            'Rumah',
+            'Penghuni',
+            'Jenis Iuran',
+            'Bulan',
+            'Tahun',
+            'Nominal',
+            'Status',
+            'Tanggal Bayar'
+        ]);
 
-        $paidBills = Payment::where('month', $month)
-            ->where('year', $year)
-            ->where('status', 'lunas')
-            ->count();
+        $payments = \App\Models\Payment::with([
+            'house',
+            'resident',
+            'paymentType'
+        ])->latest()->get();
 
-        $unpaidBills = Payment::where('month', $month)
-            ->where('year', $year)
-            ->where('status', 'belum')
-            ->count();
-
-        // CHART 12 BULAN
-        $chart = [];
-
-        for ($i = 1; $i <= 12; $i++) {
-
-            $monthlyIncome = Payment::where('month', $i)
-                ->where('year', $year)
-                ->where('status', 'lunas')
-                ->sum('amount');
-
-            $monthlyExpense = Expense::whereMonth('expense_date', $i)
-                ->whereYear('expense_date', $year)
-                ->sum('amount');
-
-            $chart[] = [
-                'month' => date('M', mktime(0,0,0,$i,1)),
-                'income' => $monthlyIncome,
-                'expense' => $monthlyExpense,
-                'balance' => $monthlyIncome - $monthlyExpense
-            ];
+        foreach ($payments as $item) {
+            fputcsv($file, [
+                $item->id,
+                $item->house?->house_number,
+                $item->resident?->full_name,
+                $item->paymentType?->name,
+                $item->month,
+                $item->year,
+                $item->amount,
+                $item->status,
+                $item->paid_at,
+            ]);
         }
 
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
+    
+    public function summary()
+    {
         return response()->json([
             'success' => true,
             'data' => [
-                'summary' => [
-                    'month' => (int)$month,
-                    'year' => (int)$year,
-                    'income' => $income,
-                    'expense' => $expense,
-                    'balance' => $income - $expense,
-                    'occupied_houses' => $occupiedHouses,
-                    'empty_houses' => $emptyHouses,
-                    'paid_bills' => $paidBills,
-                    'unpaid_bills' => $unpaidBills
-                ],
-                'chart' => $chart
+                'income' => 500000,
+                'expense' => 200000,
+                'balance' => 300000,
+                'total_house' => 20,
+                'occupied_house' => 15,
+                'empty_house' => 5,
+                'recent_payments' => [],
+                'recent_expenses' => []
             ]
         ]);
     }
+     public function chart()
+    {
+        $year = request('year', now()->year);
+
+        $months = collect(range(1, 12))->map(function ($month) use ($year) {
+
+            $income = Payment::where('status', 'lunas')
+                ->whereYear('paid_at', $year)
+                ->whereMonth('paid_at', $month)
+                ->sum('amount');
+
+            $expense = Expense::whereYear('expense_date', $year)
+                ->whereMonth('expense_date', $month)
+                ->sum('amount');
+
+            return [
+                'month' => Carbon::create()->month($month)->format('M'),
+                'income' => (int) $income,
+                'expense' => (int) $expense,
+                'balance' => (int) ($income - $expense),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'year' => $year,
+            'summary' => [
+                'income' => $months->sum('income'),
+                'expense' => $months->sum('expense'),
+                'balance' => $months->sum('balance'),
+            ],
+            'chart' => $months
+        ]);
+    }
+    public function monthlyDetail()
+{
+    $month = request('month');
+    $year  = request('year');
+
+    $payments = Payment::with(['resident', 'house', 'paymentType'])
+        ->where('status', 'lunas')
+        ->whereMonth('paid_at', $month)
+        ->whereYear('paid_at', $year)
+        ->get();
+
+    $expenses = Expense::whereMonth('created_at', $month)
+        ->whereYear('created_at', $year)
+        ->get();
+
+    $income = $payments->sum('amount');
+    $expense = $expenses->sum('amount');
+
+    return response()->json([
+        'success' => true,
+        'summary' => [
+            'income' => $income,
+            'expense' => $expense,
+            'balance' => $income - $expense,
+        ],
+        'payments' => $payments,
+        'expenses' => $expenses,
+    ]);
+}
 }

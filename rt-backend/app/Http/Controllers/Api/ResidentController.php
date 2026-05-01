@@ -77,7 +77,7 @@ class ResidentController extends Controller
                 'message' => 'Penghuni tidak ditemukan'
             ], 404);
         }
-        $resident->update($request->validate());
+       $resident->update($request->validated());
      return response()->json([
             'success' => true,
             'message' => 'Penghuni berhasil diupdate',

@@ -12,15 +12,15 @@ class ExpenseController extends Controller
 {
     public function index()
     {
-      $expense = Expense::all();
+      $expenses = Expense::latest()->paginate(10);
       return response()->json([
             'success' => true,
             'message' => 'Datae Expense',
-            'data'    => $expense,
+            'data'    => $expenses,
         ]);
     }
 
-    public function store(StoreExpenseRequest $request, $id)
+    public function store(StoreExpenseRequest $request)
     {
         $expense = Expense::create($request->validated());
 

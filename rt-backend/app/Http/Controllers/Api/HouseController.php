@@ -7,13 +7,14 @@ use App\Http\Requests\UpdateHouseRequest;
 use App\Models\House;
 use App\Models\HouseOccupancy;
 use Illuminate\Http\Request;
+use App\Models\Resident;
 use Illuminate\Support\Facades\DB;
 
 class HouseController extends Controller
 {
     public function index()
     {
-        $house = House::all();
+        $house = House::latest()->paginate(10);
         return response()->json([
             'success' => true,
             'message' => 'Data House',
@@ -98,6 +99,17 @@ class HouseController extends Controller
             ], 422);
         }
 
+        $occupied = HouseOccupancy::where(
+            'resident_id', $request->resident_id
+        )->where('is_active', true)->first();
+
+        if ($occupied) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resident masih aktif di rumah lain',
+            ], 422);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -131,60 +143,88 @@ class HouseController extends Controller
         }
     }
 
-  public function checkoutResident(Request $request, $houseId)
-{
-    $request->validate([
-        'end_date' => 'required|date'
-    ]);
-
-    $house = House::find($houseId);
-
-    if (!$house) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Rumah tidak ditemukan'
-        ], 404);
-    }
-
-    $occupancy = HouseOccupancy::where('house_id', $houseId)
-        ->where('is_active', true)
-        ->first();
-
-    if (!$occupancy) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Tidak ada penghuni aktif di rumah ini'
-        ], 422);
-    }
-
-    DB::beginTransaction();
-
-    try {
-
-        $occupancy->update([
-            'end_date' => $request->end_date,
-            'is_active' => false
+    public function checkoutResident(Request $request, $houseId)
+    {
+        $request->validate([
+            'end_date' => 'required|date',
         ]);
 
-        $house->update([
-            'house_status' => 'kosong'
-        ]);
+        $house = House::find($houseId);
 
-        DB::commit();
+        if (! $house) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rumah tidak ditemukan',
+            ], 404);
+        }
+
+        $occupancy = HouseOccupancy::where('house_id', $houseId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $occupancy) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada penghuni aktif di rumah ini',
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $occupancy->update([
+                'end_date'  => $request->end_date,
+                'is_active' => false,
+            ]);
+
+            $house->update([
+                'house_status' => 'kosong',
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Penghuni berhasil checkout dan rumah menjadi kosong',
+            ]);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal checkout penghuni',
+            ], 500);
+        }
+    }
+
+    public function availableResidents()
+    {
+        $occupiedResidentIds = HouseOccupancy::where('is_active', true)
+            ->pluck('resident_id');
+
+        $availableResidents = Resident::whereNotIn('id', $occupiedResidentIds)->get();
 
         return response()->json([
             'success' => true,
-            'message' => 'Penghuni berhasil checkout dan rumah menjadi kosong'
+            'data'    => $availableResidents,
         ]);
-
-    } catch (\Exception $e) {
-
-        DB::rollBack();
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Gagal checkout penghuni'
-        ], 500);
     }
+    public function history($id)
+{
+    $house = House::findOrFail($id);
+
+    $history = HouseOccupancy::with('resident')
+        ->where('house_id', $id)
+        ->orderByDesc('start_date')
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'house' => $house,
+        'data' => $history
+    ]);
 }
 }
